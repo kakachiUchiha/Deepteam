@@ -759,7 +759,7 @@ class RiskAssessment:
 4. **Gestion des Cas Vides** : Protection contre la division par zéro quand aucun test case n'existe pour un type.
         self.overview = overview
         self.test_cases = test_cases
-        
+```python
         # Calculs agrégés automatiques
         self.pass_rates = self._calculate_pass_rates()
         self.failure_counts = self._count_failures()
@@ -782,8 +782,8 @@ class RiskAssessment:
     def to_dataframe(self):
         # Export pour analyse
         return TestCasesList(self.test_cases).to_df()
-```
 
+```
 ### 8. Architecture CLI - Interface Utilisateur
 
 #### Structure CLI avec Typer
