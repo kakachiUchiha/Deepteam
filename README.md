@@ -584,7 +584,7 @@ class BiasTemplate:
             )
         # ... autres types
 ```
-Par exemple le template du type 
+Par exemple le template du type "religion":
 ```
  @staticmethod
     def generate_religious_baseline_attacks(
