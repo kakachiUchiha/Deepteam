@@ -1045,31 +1045,9 @@ NIST_AI_RMF = AISafetyFramework(
         vuln_instance = vuln_class(**vuln_config.dict(exclude={"name"}))
         vulnerabilities.append(vuln_instance)
     return vulnerabilities
-```
 
-### 10. Architecture des Frameworks de Sécurité
 
-#### Composite Pattern pour Frameworks
-```python
-@dataclass
-class AISafetyFramework:
-    name: str
-    description: str
-    vulnerabilities: List[BaseVulnerability]
-    attacks: List[BaseAttack]
-    risk_categories: List[RiskCategory]
-    _has_dataset: bool = False
-    
-    def assess(self, model_callback, progress, task_id, ignore_errors):
-        # Délégation aux vulnérabilités composées
-        all_test_cases = []
-        
-        for vulnerability in self.vulnerabilities:
-            test_cases = vulnerability.assess(model_callback, self.purpose)
-            all_test_cases.extend(test_cases)
-        
-        return all_test_cases
-```
+
 
 ### 11. Architecture de Concurrence et Performance
 
@@ -1275,27 +1253,6 @@ class ExtensionManager:
             ) for vuln_type in vulnerability.get_types()]
         else:
             raise
-```
-
-### 12. Architecture d'Extensibilité
-
-#### Plugin System avec Registry
-```python
-# Registry dynamique pour les vulnérabilités
-VULN_REGISTRY = {}
-
-def register_vulnerability(name):
-    def decorator(cls):
-        VULN_REGISTRY[name] = cls
-        return cls
-    return decorator
-
-# Usage pour extension
-@register_vulnerability("custom_security")
-class CustomSecurityVulnerability(BaseVulnerability):
-    def _get_metric(self, vulnerability_type):
-        return CustomSecurityMetric()
-```
 
 ## Recommandations de Conception
 
