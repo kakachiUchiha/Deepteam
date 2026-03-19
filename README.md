@@ -1046,8 +1046,12 @@ class AISafetyFramework:
 
 #### Standards de Sécurité Supportés
 
+Les frameworks implémentent des standards reconnus en sécurité IA :
+
+**📍 Emplacement** : `deepteam/frameworks/`
+
 ```python
-# Frameworks pré-définis
+# Frameworks pré-définis disponibles
 OWASP_TOP_10 = AISafetyFramework(
     name="OWASP Top 10 for LLM",
     description="Top 10 vulnerabilities for Large Language Models",
@@ -1065,6 +1069,17 @@ OWASP_TOP_10 = AISafetyFramework(
     ]
 )
 
+MITRE_ATLAS = AISafetyFramework(
+    name="MITRE ATLAS",
+    description="Adversarial Threat Landscape for AI Systems",
+    vulnerabilities=[
+        PromptInjection(),
+        DataPoisoning(),
+        ModelStealing(),
+        # ... vulnérabilités MITRE
+    ]
+)
+
 NIST_AI_RMF = AISafetyFramework(
     name="NIST AI Risk Management Framework",
     description="NIST standards for AI safety and security",
@@ -1073,25 +1088,165 @@ NIST_AI_RMF = AISafetyFramework(
 )
 ```
 
-**Architecture de Frameworks Modulaire** :
+#### Architecture de Frameworks Modulaire
 
-1. **Composite Pattern** : `AISafetyFramework` compose plusieurs vulnérabilités en un ensemble cohérent.
+**Analyse Technique des Frameworks** :
 
-2. **Standards Prédéfinis** : Frameworks connus (OWASP, NIST) disponibles prêts à l'emploi.
+1. **Composite Pattern** : `AISafetyFramework` compose plusieurs vulnérabilités en un ensemble cohérent, permettant une évaluation holistique
 
-3. **Extensibilité** : Nouveaux frameworks peuvent être créés en composant les vulnérabilités existantes.
+2. **Standards Prédéfinis** : Frameworks connus (OWASP, NIST, MITRE) disponibles prêts à l'emploi avec leurs vulnérabilités spécifiques
 
-4. **Métadonnées Riches** : Description, catégories de risque, et informations sur les datasets.
+3. **Extensibilité** : Nouveaux frameworks peuvent être créés en composant les vulnérabilités existantes selon des besoins spécifiques
 
-5. **Délégation d'Évaluation** : Le framework délègue l'évaluation aux vulnérabilités individuelles.
-        vuln_instance = vuln_class(**vuln_config.dict(exclude={"name"}))
-        vulnerabilities.append(vuln_instance)
-    return vulnerabilities
+4. **Métadonnées Riches** : Description, catégories de risque, et informations sur les datasets pour chaque framework
 
+5. **Délégation d'Évaluation** : Le framework délègue l'évaluation aux vulnérabilités individuelles tout en agrégeant les résultats
 
+6. **Support Dataset** : `_has_dataset` indique si le framework a des données pré-existantes pour les tests
 
+7. **Catégorisation des Risques** : `RiskCategory` permet de classer les vulnérabilités par domaine (sécurité, confidentialité, etc.)
 
-### 11. Architecture de Concurrence et Performance
+### 11. Architecture des Guardrails - Protection en Production
+
+#### Système de Guardrails Binaire
+
+**📍 Emplacement** : 
+- `deepteam/guardrails/guardrails.py` (Guardrails)
+- `deepteam/guardrails/guards/base_guard.py` (BaseGuard)
+
+```python
+class Guardrails:
+    """
+    Open-source guardrails system for production LLM safety.
+    Fast binary classification to guard inputs and outputs.
+    """
+
+    def __init__(
+        self,
+        input_guards: List[BaseGuard],
+        output_guards: List[BaseGuard],
+        evaluation_model: str = "gpt-4.1",
+        sample_rate: float = 1.0,
+    ):
+        # Séparation guards input/output
+        self.input_guards = self._update_guards_model(input_guards, evaluation_model)
+        self.output_guards = self._update_guards_model(output_guards, evaluation_model)
+        self.sample_rate = sample_rate
+        self.evaluation_model = evaluation_model
+```
+
+#### Architecture de Guardrails Détaillée
+
+**Structure du Système de Guardrails** :
+
+1. **Double Protection** : Séparation claire entre `input_guards` (avant le LLM) et `output_guards` (après le LLM)
+
+2. **Classification Binaire** : `GuardVerdict` avec niveaux `safe`, `borderline`, `unsafe`, `uncertain` pour une décision rapide
+
+3. **Sampling Intelligent** : `sample_rate` permet de contrôler la fraction des requêtes réellement gardées (0.0 à 1.0)
+
+4. **Modèle d'Évaluation Unifié** : Tous les guards utilisent le même `evaluation_model` pour cohérence et performance
+
+5. **Résultats Agrégés** : `GuardResult` combine tous les verdicts et détermine si une violation (`breached`) a eu lieu
+
+#### Guards Individuels Spécialisés
+
+**📍 Emplacement** : `deepteam/guardrails/guards/`
+
+```python
+# Base abstraite pour tous les guards
+class BaseGuard(ABC):
+    score: Optional[float] = None
+    reason: Optional[str] = None
+    safety_level: Optional[SafetyLevel] = None
+    guard_type: GuardType
+    
+    @abstractmethod
+    def guard_input(self, input: str, guard_prompt: str) -> str:
+        pass
+    
+    @abstractmethod
+    def guard_output(self, input: str, output: str, guard_prompt: str) -> str:
+        pass
+
+# Guards spécialisés disponibles
+GUARDS = {
+    "toxicity": ToxicityGuard,
+    "privacy": PrivacyGuard, 
+    "prompt_injection": PromptInjectionGuard,
+    "cybersecurity": CybersecurityGuard,
+    "hallucination": HallucinationGuard,
+    "illegal": IllegalGuard,
+    "topical": TopicalGuard
+}
+```
+
+#### Pipeline d'Exécution des Guardrails
+
+**Processus de Protection Complet** :
+
+```python
+# Pipeline synchrone
+def guard_input(self, input: str) -> GuardResult:
+    verdicts = []
+    for guard in self.input_guards:
+        start_time = time.time()
+        try:
+            guard.guard_input(input)
+            verdicts.append(GuardVerdict(
+                name=guard.__name__,
+                safety_level=guard.safety_level,
+                latency=time.time() - start_time,
+                reason=guard.reason,
+                score=guard.score
+            ))
+        except Exception as e:
+            verdicts.append(GuardVerdict(
+                name=guard.__name__,
+                safety_level="unsafe",
+                error=str(e)
+            ))
+    return GuardResult(verdicts=verdicts)
+
+# Pipeline asynchrone pour performance
+async def a_guard_input(self, input: str) -> GuardResult:
+    tasks = []
+    for guard in self.input_guards:
+        task = asyncio.create_task(self._async_guard_input_single(guard, input))
+        tasks.append(task)
+    
+    verdicts = await asyncio.gather(*tasks)
+    return GuardResult(verdicts=verdicts)
+```
+
+#### Architecture de Performance et Résilience
+
+**Caractéristiques Techniques des Guardrails** :
+
+1. **Exécution Parallèle** : Version asynchrone `a_guard_input/a_guard_output` pour performance maximale
+
+2. **Isolation d'Erreurs** : Chaque guard s'exécute indépendamment, une erreur dans un guard n'affecte pas les autres
+
+3. **Mesures de Performance** : `latency` mesurée pour chaque guard et `evaluation_cost` pour le suivi des coûts
+
+4. **Schema Validation** : Utilisation de `SafetyLevelSchema` pour validation structurée des réponses LLM
+
+5. **Fallback Graceful** : En cas d'erreur, le guard retourne `unsafe` par défaut pour sécurité
+
+6. **Telemetry Intégrée** : `capture_guardrail_run()` pour suivi des exécutions et monitoring
+
+7. **Modèle Native Support** : Support des modèles natifs avec tracking des coûts via `using_native_model`
+
+#### Intégration avec le Système Principal
+
+**Les guardrails s'intègrent naturellement dans l'écosystème DeepTeam** :
+
+- **Mêmes Modèles** : Utilisent le même système d'initialisation de modèles que le reste du framework
+- **Configuration Unifiée** : Modèles d'évaluation configurables comme pour les vulnérabilités
+- **Résultats Compatibles** : `GuardResult` peut être combiné avec `RiskAssessment` pour une vue complète
+- **Async/Sync** : Support des deux modes comme le reste du système
+
+### 12. Architecture de Concurrence et Performance
 
 #### Semaphore-Based Throttling
 
@@ -1154,7 +1309,7 @@ async def a_red_team(self, ...):
 3. **Async/Await Optimisé** : Utilisation intensive de l'asynchrone pour maximiser le débit
 4. **Pipeline Parallèle** : `asyncio.gather()` exécute toutes les évaluations en parallèle tout en respectant les limites du sémaphore
 
-### 12. Architecture d'Extensibilité
+### 13. Architecture d'Extensibilité
 
 #### Extension par Mapping Dynamique
 
