@@ -75,7 +75,7 @@ DeepTeam est un framework de **red teaming** pour LLM organisé en couches archi
 ```python
 # Pipeline d'exécution complet
 Configuration → RedTeamer → AttackSimulator → Vulnerabilities → 
-Model Callback → Metrics → RiskAssessment → Output (JSON/DF/API)
+Model Callback → Metrics → RiskAssessment → Output (JSON/API)
 ```
 
 **Explication des Flux** :
