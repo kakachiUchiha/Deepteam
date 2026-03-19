@@ -1003,7 +1003,6 @@ models:
 
 #### YAML Declarative Configuration
 
-**📍 Emplacement** : `deepteam/cli/config.py`
 
 ```yaml
 # Configuration complète
@@ -1035,43 +1034,50 @@ attacks:
     weight: 1
 ```
 
+
 #### Validation et Parsing
 
-**📍 Emplacement** : `deepteam/cli/config.py`
+**📍 Emplacement** : `deepteam/cli/main.py`
 
 ```python
-def load_config(config_path: str):
-    with open(config_path) as f:
-        data = yaml.safe_load(f)
-    
-    # Validation Pydantic
-    try:
-        config = RedTeamConfig(**data)
-    except ValidationError as e:
-        raise ValueError(f"Configuration invalide: {e}")
-    
-    return config
-
-def create_vulnerabilities(config_vulns):
-    vulnerabilities = []
-    for vuln_config in config_vulns:
-        vuln_class = VULN_MAP[vuln_config.name]
-        vuln_instance = vuln_class(**vuln_config.dict(exclude={"name"}))
-        vulnerabilities.append(vuln_instance)
-    return vulnerabilities
+def _load_config(path: str):
+    with open(path, "r") as f:
+        return yaml.safe_load(f)
 ```
 
-**Architecture de Configuration Robuste** :
+**Architecture de Configuration Réelle** :
 
-1. **Structure Déclarative** : YAML permet une configuration lisible par l'homme et versionnable facilement.
+1. **Chargement YAML Simple** : `_load_config()` utilise `yaml.safe_load()` pour charger la configuration brute.
 
-2. **Validation Pydantic** : `RedTeamConfig` est un modèle Pydantic qui valide automatiquement les types et les contraintes.
+2. **Gestion des Clés Persistantes** : `deepteam/cli/config.py` gère les clés API et configuration persistante :
+   ```python
+   def set_key(key: str, value: str)
+   def get_key(key: str) -> str | None
+   def apply_env()  # Applique les clés à os.environ
+   ```
 
-3. **Mapping Dynamique** : Conversion automatique des noms de classes en instances via les dictionnaires de mapping.
+3. **Mapping Dynamique dans CLI** : La création des objets se fait directement dans la fonction `run()` :
+   ```python
+   vulnerabilities = [
+       VULN_MAP[vuln.name](**vuln.dict()) 
+       for vuln in cfg["vulnerabilities"]
+   ]
+   
+   attacks = [
+       ATTACK_MAP[attack.name](**attack.dict())
+       for attack in cfg["attacks"]
+   ]
+   ```
 
-4. **Gestion Centralisée** : Configuration des modèles, concurrence, et paramètres système dans une seule section.
+4. **Validation Runtime** : La validation se fait au moment de l'exécution via les constructeurs des classes et les mappings.
 
-5. **Extensibilité** : Nouvelles vulnérabilités/attaques peuvent être ajoutées sans modifier le parser.
+**Architecture de Configuration Simplifiée** :
+
+- **Structure Déclarative** : YAML permet une configuration lisible et versionnable
+- **Chargement Direct** : Pas de validation Pydantic complexe, chargement YAML brut
+- **Mapping Exécution** : Conversion nom→instance au runtime via dictionnaires
+- **Gestion Centralisée** : Clés persistantes séparées dans `config.py`
+- **Extensibilité** : Nouveaux types ajoutés via extension des registres
 
 ### 10. Architecture des Frameworks de Sécurité
 
