@@ -384,7 +384,6 @@ Les vulnérabilités utilisent le Template Method Pattern pour standardiser le w
 
 **📍 Emplacement** : 
 - `deepteam/vulnerabilities/base_vulnerability.py` (BaseVulnerability)
-- `deepteam/vulnerabilities/bias/bias.py` (Bias)
 
 ```python
 class BaseVulnerability(ABC):
