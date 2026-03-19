@@ -387,6 +387,7 @@ async def a_simulate(self, vulnerabilities, attacks, ...):
     
     return baseline_attacks
 ```
+Le diagramme suivant est un diagramme du workflow de a_simulate(), qui illustre clairement la génération d’attaques de base, l’échantillonnage pondéré et le throttling :
 ```
                     ┌─────────────────────────┐
                     │ Début de a_simulate()   │
