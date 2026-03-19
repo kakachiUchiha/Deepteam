@@ -4,8 +4,7 @@
 
 ### Vue d'Ensemble Système
 
-DeepTeam est un framework de **red teaming** pour LLM organisé en couches architecturales distinctes qui collaborent pour identifier les vulnérabilités des systèmes d'IA :
-
+DeepTeam est un framework de red teaming pour les systèmes LLM, organisé en couches architecturales distinctes qui collaborent afin d’identifier et d’évaluer les vulnérabilités des systèmes d’IA.
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    COUCHE INTERFACE                         │
