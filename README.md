@@ -857,43 +857,147 @@ def run(
 
 5. **Configuration Déclarative** : Séparation claire entre la configuration YAML (déclarative) et l'exécution (programmatique).
 
-#### Chargement Dynamique de Callback
+
+#### Chargement Dynamique de Modèles LLM
 
 **📍 Emplacement** : `deepteam/cli/model_callback.py`
 
+Le système de chargement de modèles supporte plusieurs fournisseurs LLM et permet l'intégration de modèles personnalisés :
+
+**Fonction Principale - load_model() :**
 ```python
-def load_model(callback_file: str, function_name: str):
-    """Charge dynamiquement un callback depuis un fichier Python"""
-    spec = importlib.util.spec_from_file_location("user_model", callback_file)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+def load_model(spec: Union[str, Dict[str, Any], None]) -> DeepEvalBaseLLM:
+    """Construct a DeepEval model instance from a YAML spec or string."""
+    if spec is None or isinstance(spec, str):
+        # use deepeval helper which respects global config
+        model, _ = initialize_model(spec)
+        return model
+
+    provider = str(spec.get("provider", "openai")).lower()
+    model_name = spec.get("model") or spec.get("model_name")
+    temperature = spec.get("temperature", 0)
+
+    # Support de multiples fournisseurs
+    if provider == "openai":
+        return GPTModel(model=model_name, temperature=temperature)
     
-    if not hasattr(module, function_name):
-        raise ValueError(f"Function {function_name} not found in {callback_file}")
+    if provider == "azure":
+        return AzureOpenAIModel(
+            model_name=model_name,
+            deployment_name=spec.get("deployment_name"),
+            azure_openai_api_key=spec.get("api_key"),
+            openai_api_version=spec.get("openai_api_version"),
+            azure_endpoint=spec.get("endpoint") or spec.get("azure_endpoint"),
+            temperature=temperature,
+        )
     
-    return getattr(module, function_name)
+    if provider == "ollama":
+        return OllamaModel(
+            model=model_name,
+            base_url=spec.get("base_url", "http://localhost:11434"),
+            temperature=temperature,
+        )
+    
+    if provider == "gemini":
+        return GeminiModel(
+            model_name=model_name,
+            api_key=spec.get("api_key"),
+            temperature=temperature,
+        )
+    
+    if provider == "anthropic":
+        return AnthropicModel(model=model_name, temperature=temperature)
+    
+    if provider == "custom":
+        # Chargement des modèles personnalisés
+        file_path = spec.get("file")
+        class_name = spec.get("class")
+        if not file_path or not class_name:
+            raise ValueError(
+                "Custom provider requires 'file' and 'class' fields"
+            )
+        return _load_custom_model_from_file(file_path, class_name)
+    
+    raise ValueError(f"Unknown provider: {provider}")
 ```
 
-**Mécanismes de Chargement Dynamique** :
+**Fonction de Chargement de Modèles Personnalisés :**
+```python
+def _load_custom_model_from_file(
+    file_path: str, class_name: str
+) -> DeepEvalBaseLLM:
+    """Load a custom DeepEval model class from a Python file."""
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"Custom model file not found: {file_path}")
 
-1. **Import Runtime** : Utilisation d'`importlib` pour charger les modules sans dépendance statique.
-
-2. **Validation de Présence** : Vérification que la fonction existe bien dans le module chargé.
-
-3. **Isolation** : Le module utilisateur est chargé dans un namespace séparé, évitant les conflits.
-
-4. **Gestion d'Erreurs** : Messages d'erreur clairs pour guider l'utilisateur en cas de problème.
-    
-    risk_assessment = red_teamer.red_team(
-        model_callback=model_callback,
-        vulnerabilities=vulnerabilities,
-        attacks=attacks,
-        attacks_per_vulnerability_type=attacks_per_vuln
+    spec = importlib.util.spec_from_file_location(
+        "custom_model_module", file_path
     )
-    
-    # Sauvegarde des résultats
-    save_results(risk_assessment, output_folder)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Could not load module from {file_path}")
+
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["custom_model_module"] = module
+    spec.loader.exec_module(module)
+
+    if not hasattr(module, class_name):
+        raise AttributeError(f"Class '{class_name}' not found in {file_path}")
+
+    model_class = getattr(module, class_name)
+    if not issubclass(model_class, DeepEvalBaseLLM):
+        raise TypeError(
+            f"'{class_name}' in {file_path} must inherit from DeepEvalBaseLLM"
+        )
+
+    return model_class()
 ```
+
+**Architecture du Système de Chargement Dynamique** :
+
+1. **Chargement par Spécification** : La fonction `load_model()` accepte :
+   - Une **chaîne simple** ("gpt-4o", "claude-3") → utilise les configurations globales
+   - Un **dictionnaire spécifique** → crée le modèle avec les paramètres fournis
+   - **None** → utilise la configuration par défaut
+
+2. **Support Multi-Fournisseurs** : Architecture extensible pour :
+   - OpenAI (GPT-3.5, GPT-4, GPT-4o)
+   - Azure OpenAI
+   - Local (Ollama)
+   - Google Gemini
+   - Anthropic Claude
+   - Modèles personnalisés
+
+3. **Validation Stricte des Modèles Personnalisés** :
+   - Vérification de l'existence du fichier
+   - Vérification de l'existence de la classe
+   - Vérification de l'héritage de `DeepEvalBaseLLM`
+   - Gestion d'erreurs détaillée à chaque étape
+
+4. **Isolation des Modules** : Le module chargé est enregistré dans `sys.modules` pour éviter les réimportations / conflits
+
+5. **Instanciation Automatique** : Les modèles personnalisés sont automatiquement instanciés, retournant une instance prête à l'emploi
+
+**Configuration YAML pour les Modèles Personnalisés :**
+```yaml
+models:
+  custom:
+    provider: "custom"
+    file: "./custom_models/my_model.py"
+    class: "MyCustomLLMModel"
+  
+  openai:
+    provider: "openai"
+    model: "gpt-4o"
+    temperature: 0.7
+  
+  azure:
+    provider: "azure"
+    model_name: "gpt-4-deployment"
+    deployment_name: "my-deployment"
+    api_key: "${AZURE_OPENAI_KEY}"
+    azure_endpoint: "https://xxx.openai.azure.com"
+```
+    
 
 ### 9. Architecture de Configuration
 
