@@ -173,7 +173,7 @@ class RedTeamer:
 3. **Configuration de Concurrence** : Les paramètres `max_concurrent` et `async_mode` permettent de contrôler la charge sur les APIs externes. `max_concurrent` utilise un sémaphore pour limiter le nombre de requêtes simultanées.
 
 4. **Injection de Dépendances** : L'objet `AttackSimulator` est injecté dans le RedTeamer plutôt que d'être créé en dur. Cela facilite les tests et permet de remplacer le simulateur si nécessaire.
-```
+
 
 **Key Design Decisions** :
 - **Dependency Injection** : Les modèles sont injectés, pas hardcodés
