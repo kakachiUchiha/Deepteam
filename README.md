@@ -63,7 +63,7 @@ DeepTeam est un framework de **red teaming** pour LLM organisé en couches archi
 │  │   Abstraction   │  │   Management     │  │   Layer         │ │
 │  │                 │  │                 │  │                 │ │
 │  │ • OpenAI        │  │ • Async/Sync    │  │ • JSON Export   │ │
-│  │ • Anthropic     │  │ • Semaphore     │  │ • DataFrame     │ │
+│  │ • Anthropic     │  │ • Semaphore     │  │      │ │
 │  │ • Local Models  │  │ • Rate Limiting │  │ • API Upload    │ │
 │  │ • Custom        │  │ • Error Isolation│ │ • Caching       │ │
 │  └─────────────────┘  └─────────────────┘  └─────────────────┘ │
