@@ -1541,3 +1541,4 @@ class ReasoningConfig(BaseModel):
 ```
 
 Cette architecture fournit une base solide pour concevoir un moteur de raisonnement avec des capacités de génération, évaluation et apprentissage similaires à DeepTeam, en s'assurant que chaque composant est modulaire, testable et extensible.
+
